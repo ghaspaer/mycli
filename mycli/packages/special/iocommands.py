@@ -17,6 +17,7 @@ TIMING_ENABLED = False
 use_expanded_output = False
 PAGER_ENABLED = True
 tee_file = None
+once_file = None
 
 @export
 def set_timing_enabled(val):
@@ -291,3 +292,40 @@ def write_tee(output):
         tee_file.write(output)
         tee_file.write(u"\n")
         tee_file.flush()
+
+
+@special_command('\\once', '\\o [-o] filename', 'Output for the next SQL command only to FILENAME', aliases=('\\o', ))
+def set_once(arg, **_):
+    global once_file
+
+    if arg.startswith('-o '):
+        mode = "w"
+        filename = arg[3:]
+    else:
+        mode = 'a'
+        filename = arg
+
+    if not filename:
+        raise TypeError('You must provide a filename.')
+
+    once_file = {'file': filename, 'mode': mode}
+
+    return [(None, None, None, "")]
+
+
+@export
+def write_once(output):
+    global once_file
+    if output and once_file:
+        try:
+            f = open(**once_file)
+        except (IOError, OSError) as e:
+            once_file = None
+            raise OSError("Cannot write to file '{}': {}".format(
+                e.filename, e.strerror))
+
+        with f:
+            f.write(output)
+            f.write(u"\n")
+
+        once_file = None
